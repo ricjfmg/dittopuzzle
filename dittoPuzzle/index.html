@@ -1,0 +1,715 @@
+<!doctype html> 
+<html lang="en"> 
+<head>
+<meta charset="UTF-8" />
+<title>Poke Ditto Puzzle</title>
+<link rel="icon" type="image/png" href="assets/berry1.png">
+<script src="phaser.js"></script>
+<style type="text/css">
+body {
+	margin: 0;
+	/*zoom: 1.2;*/
+}
+</style>
+</head>
+<body>
+
+<script type="text/javascript">
+var player;
+var platforms;
+var cursors;
+var berrys;
+var score = 0;
+var scoreText;
+var delay;
+var cooldown;
+var POKEMON = [];
+var fase = 1;
+var first = true;
+var haunter;
+var hauntCD = false;
+
+POKEMON[0] = { //DITTO
+	'bounceX' : 0.2,
+	'bounceY' : 0.2,
+	'gravityX' : 0,
+	'gravityY' : 300,
+	'collide' : true,
+	'texture' : 'ditto',
+	'width': 22,
+	'height' : 18
+}
+POKEMON[1] = { //PIDGEY
+	'bounceX' : 0.4,
+	'bounceY' : 0.4,
+	'gravityX' : 0,
+	'gravityY' : 0,
+	'collide' : true,
+	'texture' : 'pidgey',
+	'width': 26,
+	'height' : 22,
+	'duration' : 2
+}
+POKEMON[2] = { //SQUIRTLE
+	'bounceX' : 0.1,
+	'bounceY' : 0.1,
+	'gravityX' : 0,
+	'gravityY' : 500,
+	'collide' : true,
+	'texture' : 'squirtle',
+	'width': 38,
+	'height' : 34,
+	'duration' : 0
+}
+POKEMON[3] = { //DIGLETT
+	'bounceX' : 0.1,
+	'bounceY' : 0.1,
+	'gravityX' : 0,
+	'gravityY' : 0,
+	'collide' : true,
+	'texture' : 'diglett',
+	'width': 22,
+	'height' : 16,
+	'duration' : 0
+}
+POKEMON[4] = { //MACHOP
+	'bounceX' : 0.1,
+	'bounceY' : 0.1,
+	'gravityX' : 0,
+	'gravityY' : 380,
+	'collide' : true,
+	'texture' : 'machop',
+	'width': 27.8,
+	'height' : 36,
+	'duration' : 0
+}
+
+var StartScreen = StartScreen || {};
+StartScreen.GameState = {
+	preload: function() {
+		game.load.image('splash', 'assets/splash.png');
+	},
+	create: function() {
+		splash = game.add.sprite(0, 0, 'splash');
+		enter = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
+		enter.onDown.add( function() { game.state.start('DittoPuzzle'); });;
+	},
+	update: function() {
+		
+	}
+}
+
+var GameOver = GameOver || {};
+GameOver.GameState = {
+	preload: function() {
+		game.load.image('gameover', 'assets/gameover.png');
+	},
+	create: function() {
+		gameover = game.add.sprite(0, 0, 'gameover');
+		enter = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
+		enter.onDown.add( function() { game.state.start('StartScreen'); });
+	},
+	update: function() {
+		
+	}
+}
+
+var WinScreen = WinScreen || {};
+WinScreen.GameState = {
+	preload: function() {
+		game.load.image('winscreen', 'assets/winscreen.png');
+	},
+	create: function() {
+		winscreen = game.add.sprite(0, 0, 'winscreen');
+		enter = game.input.keyboard.addKey(Phaser.Keyboard.ENTER);
+		fase++;
+		if (fase==3) enter.onDown.add( function() { fase = 1; game.state.start('StartScreen'); });
+		else enter.onDown.add( function() { game.state.start('DittoPuzzle'); });
+	},
+	update: function() {
+		
+	}
+}
+
+var DittoPuzzle = DittoPuzzle || {};
+DittoPuzzle.GameState = {
+preload: function() {
+	game.load.image('sky', 'assets/sky.png');
+	game.load.image('cave', 'assets/cave.png');
+	game.load.image('ground', 'assets/ground.png');
+	game.load.image('grass', 'assets/grass.png');
+	game.load.image('stone', 'assets/stone.png');
+	game.load.image('wood', 'assets/wood.png');
+	game.load.image('boulder', 'assets/boulder.png');
+	game.load.image('berry', 'assets/berry1.png');
+	game.load.image('berry2', 'assets/berry2.png');
+	game.load.spritesheet('ditto', 'assets/ditto.png', 22, 18);
+	game.load.spritesheet('dittoD', 'assets/dittoD.png', 31, 13);
+	game.load.spritesheet('diglett', 'assets/diglett.png', 22, 16);
+	game.load.spritesheet('pidgey', 'assets/pidgey.png', 26, 22);
+	game.load.spritesheet('squirtle', 'assets/squirtle.png', 38, 34);
+	game.load.spritesheet('machop', 'assets/machop.png', 27.8, 36);
+	game.load.spritesheet('watergun-l', 'assets/watergun-l.png', 75, 34);
+	game.load.spritesheet('watergun-r', 'assets/watergun-r.png', 75, 34);
+	game.load.spritesheet('fire', 'assets/fire.png', 40, 41);
+	game.load.spritesheet('haunter', 'assets/haunter.png', 40, 38);
+},
+
+create: function() {
+	game.physics.startSystem(Phaser.Physics.ARCADE);
+
+	background = game.add.group();
+	digs = game.add.group();
+	digs.enableBody = true;
+	platforms = game.add.group();
+	platforms.enableBody = true;
+	fires = game.add.group();
+	fires.enableBody = true;
+	waters = game.add.group();
+	waters.enableBody = true;
+	boulders = game.add.group();
+	boulders.enableBody = true;
+	ghosts = game.add.group();
+	ghosts.enableBody = true;
+
+	player = game.add.sprite(20, game.world.height - 100, 'ditto');
+	game.physics.arcade.enable(player);
+	player.body.bounce.y = 0.2;
+	player.body.bounce.x = 0.2;
+	player.body.gravity.y = 400;
+	player.body.collideWorldBounds = true;
+
+	player.animations.add('left', [0, 1], 10, true);
+	player.animations.add('right', [4, 3], 10, true);
+
+	if (fase==1) {
+		info = game.add.text(810, 30, 'Colete todas frutas!\n\nSetas: Movimentação\n0: Destransformar\n1: Pidgey (cima: voar)\n2: Squirtle (espaço: água)\n3: Diglett (baixo: cavar)\n4: ???', { font: '16px Mangal', fill: 'white' });
+		background.create(0, 0, 'sky');
+
+		var dig = digs.create(300, game.world.height - 80, 'ground');
+		dig.scale.setTo(300, 80);
+		dig.body.immovable = true;
+
+		var ground = platforms.create(0, game.world.height - 160, 'stone');
+		ground.scale.setTo(200, 26);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(380, 160, 'wood');
+		ground.scale.setTo(40, 400);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(400, 360, 'wood');
+		ground.scale.setTo(100, 22);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(480, 345, 'grass');
+		ground.scale.setTo(50, 50);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(300, 100, 'grass');
+		ground.scale.setTo(200, 110);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(0, game.world.height - 80, 'stone');
+		ground.scale.setTo(300, 80);
+		ground.body.immovable = true;
+		
+		var ground = platforms.create(500, game.world.height - 80, 'stone');
+		ground.scale.setTo(300, 80);
+		ground.body.immovable = true;
+
+		var h = 480;
+		var fire = fires.create(160, h, 'fire');
+		fire.animations.add('fire', [0, 1], 10, true);
+		fire.animations.play('fire');
+		fire.body.immovable = true;
+		var fire = fires.create(140, h, 'fire');
+		fire.animations.add('fire', [0, 1], 10, true);
+		fire.animations.play('fire');
+		fire.body.immovable = true;
+		var fire = fires.create(120, h, 'fire');
+		fire.animations.add('fire', [0, 1], 10, true);
+		fire.animations.play('fire');
+		fire.body.immovable = true;
+		
+		cursors = game.input.keyboard.createCursorKeys();
+		t0 = game.input.keyboard.addKey(Phaser.Keyboard.ZERO);
+		t0.onDown.add( function() { transform(); });
+		t1 = game.input.keyboard.addKey(Phaser.Keyboard.ONE);
+		t1.onDown.add( function() { transform(1); });
+		t2 = game.input.keyboard.addKey(Phaser.Keyboard.TWO);
+		t2.onDown.add( function() { transform(2); });
+		t3 = game.input.keyboard.addKey(Phaser.Keyboard.THREE);
+		t3.onDown.add( function() { transform(3); });
+
+	}else if (fase==2) {
+		info = game.add.text(810, 30, 'Colete todas frutas!\n\nSetas: Movimentação\n0: Destransformar\n1: Pidgey (cima: voar)\n2: Squirtle (espaço: água)\n3: Diglett (baixo: cavar)\n4: Machop (setas: empurrar)\n(pressione múltiplas vezes)', { font: '16px Mangal', fill: 'white' });
+		background.create(0, 0, 'cave');
+
+		var ground = platforms.create(0, game.world.height - 80, 'stone');
+		ground.scale.setTo(800, 80);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(0, 0, 'stone');
+		ground.scale.setTo(800, 40);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(0, game.world.height - 140, 'stone');
+		ground.scale.setTo(240, 26);
+		ground.body.immovable = true;
+
+		var ground = platforms.create(60, game.world.height - 200, 'stone');
+		ground.scale.setTo(320, 26);
+		ground.body.immovable = true;
+
+		var boulder = boulders.create(140, game.world.height - 170, 'boulder');
+		boulder.body.immovable = true;
+		boulder.body.collideWorldBounds = true;
+
+		var ground = platforms.create(0, game.world.height - 260, 'stone');
+		ground.scale.setTo(240, 26);
+		ground.body.immovable = true;
+
+		var boulder = boulders.create(140, game.world.height - 230, 'boulder');
+		boulder.body.immovable = true;
+		boulder.body.collideWorldBounds = true;
+
+		var fire = fires.create(422, 160, 'fire');
+		fire.animations.add('fire', [0, 1], 10, true);
+		fire.animations.play('fire');
+		fire.body.immovable = true;
+
+		var ground = platforms.create(380, 200, 'stone');
+		ground.scale.setTo(80, 340);
+		ground.body.immovable = true;
+
+		haunter = ghosts.create(700, game.world.height - 160, 'haunter');
+		haunter.enableBody = true;
+
+		cursors = game.input.keyboard.createCursorKeys();
+		t0 = game.input.keyboard.addKey(Phaser.Keyboard.ZERO);
+		t0.onDown.add( function() { transform(); });
+		t1 = game.input.keyboard.addKey(Phaser.Keyboard.ONE);
+		t1.onDown.add( function() { transform(1); });
+		t2 = game.input.keyboard.addKey(Phaser.Keyboard.TWO);
+		t2.onDown.add( function() { transform(2); });
+		t3 = game.input.keyboard.addKey(Phaser.Keyboard.THREE);
+		t3.onDown.add( function() { transform(3); });
+		t4 = game.input.keyboard.addKey(Phaser.Keyboard.FOUR);
+		t4.onDown.add( function() { transform(4); });
+
+	}else{
+
+		cursors = game.input.keyboard.createCursorKeys();
+		t0 = game.input.keyboard.addKey(Phaser.Keyboard.ZERO);
+		t0.onDown.add( function() { transform(); });
+		t1 = game.input.keyboard.addKey(Phaser.Keyboard.ONE);
+		t1.onDown.add( function() { transform(1); });
+		t2 = game.input.keyboard.addKey(Phaser.Keyboard.TWO);
+		t2.onDown.add( function() { transform(2); });
+		t3 = game.input.keyboard.addKey(Phaser.Keyboard.THREE);
+		t3.onDown.add( function() { transform(3); });
+		t4 = game.input.keyboard.addKey(Phaser.Keyboard.FOUR);
+		t4.onDown.add( function() { transform(4); });
+	}
+
+	berrys = game.add.group();
+	berrys.enableBody = true;
+	for (var i = 0; i < 3; i++)
+	{
+		var berry = berrys.create(i * 70, 80, 'berry');
+		berry.body.gravity.y = 400;
+		berry.body.bounce.y = 0.1 + Math.random() * 0.1;
+	}
+	for (var i = 9; i < 12; i++)
+	{
+		var berry = berrys.create(i * 70, 80, 'berry2');
+		berry.body.gravity.y = 400;
+		berry.body.bounce.y = 0.1 + Math.random() * 0.1;
+	}
+
+},
+
+update: function() {
+	if (fase==2) {
+		if (!hauntCD) {
+			game.physics.arcade.moveToObject(haunter, player, 70, this);
+			game.time.events.add(Phaser.Timer.SECOND * 1, function() {
+				hauntCD = true;
+			});
+		}else{
+			haunter.body.velocity.x = 0;
+			haunter.body.velocity.y = 0;
+			game.time.events.add(Phaser.Timer.SECOND * 1, function() {
+				hauntCD = false;
+			});
+		}
+	}
+	game.physics.arcade.overlap(player, haunter, killPlayer, null, this);
+
+	var hitPlatform = game.physics.arcade.collide(player, platforms);
+
+	if (player._poke != 3) var hitGround = game.physics.arcade.collide(player, digs);
+	else var underground = game.physics.arcade.overlap(player, digs);
+
+	if (player._poke == 4) game.physics.arcade.overlap(boulders, player, pushBoulder, null, this);
+	var hitBoulder = game.physics.arcade.collide(player, boulders);
+
+	if (underground) player._underground = true;
+	else player._underground = false;
+	
+	game.physics.arcade.collide(berrys, platforms);
+	game.physics.arcade.collide(berrys, digs);
+	game.physics.arcade.overlap(player, berrys, collectberry, null, this);
+	game.physics.arcade.overlap(player, fires, killPlayer, null, this);
+	game.physics.arcade.overlap(waters, fires, killFire, null, this);
+
+	player.body.velocity.x = 0;
+	var p = POKEMON[player._poke];
+
+	switch (player._poke) {
+		case 1: // PIDGEY
+			player.body.velocity.y = 0;
+			player.animations.play(player._facing);
+			if (cursors.down.isDown) { //DOWN
+				player.body.velocity.y = 160;
+			}
+			if (cursors.up.isDown) //UP
+			{
+				player.body.velocity.y = -100;
+			}
+			if (cursors.left.isDown) //LEFT
+			{
+				player.body.velocity.x = -150;
+				player._facing = 'left';
+				player.animations.play(player._facing);
+			}
+			if (cursors.right.isDown) //RIGHT
+			{
+				player.body.velocity.x = 150;
+				player._facing = 'right';
+				player.animations.play(player._facing);
+			}
+			break;
+		case 2: // SQUIRTLE
+											//DOWN
+			if (cursors.down.isDown && player.body.touching.down)
+			{
+				if (!player._shell) {
+					player.animations.play('shellIn-'+player._facing);
+					player._shell = true;
+				}else{
+					//player.animations.stop();
+				}
+			}
+			else
+			{
+				if (cursors.left.isDown) //LEFT
+				{
+					player.body.velocity.x = -150;
+					player._facing = 'left';
+					if (player.body.touching.down && hitPlatform)
+						player.animations.play(player._facing);
+					else
+						if (player._facing=='left')
+							player.frame = 0;
+						else
+							player.frame = 19;
+				}
+				else if (cursors.right.isDown) //RIGHT
+				{
+					player.body.velocity.x = 150;
+					player._facing = 'right';
+					if (player.body.touching.down && hitPlatform)
+						player.animations.play(player._facing);
+					else 
+						if (player._facing=='left')
+							player.frame = 0;
+						else
+							player.frame = 19;
+				}
+				else // NONE
+				{
+					if (player._shell) {
+						player.animations.play('shellOut-'+player._facing);
+						player._shell = false;
+						delay = true;
+					}else{
+						if (delay)
+							game.time.events.add(Phaser.Timer.SECOND * 1, function() {
+								if (player._facing == 'left') player.frame = 6;
+								else player.frame = 13;
+								delay = false;
+							});
+						else {
+							if (player._facing == 'left') player.frame = 6;
+							else player.frame = 13;
+						}
+					}
+				}
+				if (cursors.up.isDown && player.body.touching.down && hitPlatform && !player.body.touching.up)
+				{
+					player.body.velocity.y = -160;
+					if (player._facing=='left')
+						player.frame = 0;
+					else
+						player.frame = 19;
+					player.animations.stop();
+				}
+			}
+			break;
+		case 3: // DIGLETT
+									//DOWN
+			if (!player.body.touching.down && !hitPlatform && !underground) {
+				player.body.velocity.y = 200;
+			}else{
+				player.body.velocity.y = 0;
+			}
+			if (cursors.down.isDown && !hitPlatform) {
+				player.body.velocity.y = 100;
+			}
+									//UP
+			if (cursors.up.isDown && underground && !hitPlatform)
+			{
+				player.body.velocity.y = -100;
+			}
+			if (cursors.left.isDown && !hitPlatform) //LEFT
+			{
+				player.body.velocity.x = -150;
+				player._facing = 'left';
+				player.animations.play(player._facing);
+			}else
+			if (cursors.right.isDown && !hitPlatform) //RIGHT
+			{
+				player.body.velocity.x = 150;
+				player._facing = 'right';
+				player.animations.play(player._facing);
+			}
+			else //NONE
+			{
+				player.animations.stop();
+			}
+			break;
+		case 4: // MACHOP
+									//UP
+			if (cursors.up.isDown && player.body.touching.down && !player.body.touching.up)
+			{
+				player.body.velocity.y = -220;
+			}
+											//DOWN
+			if (cursors.down.isDown && player.body.touching.down)
+			{
+
+			}
+			else
+			{
+				if (cursors.left.isDown) //LEFT
+				{
+					player.body.velocity.x = -200;
+					player._facing = 'left';
+					player.animations.play(player._facing);
+					
+				}
+				else if (cursors.right.isDown) //RIGHT
+				{
+					player.body.velocity.x = 200;
+					player._facing = 'right';
+					player.animations.play(player._facing);
+				}
+				else // NONE
+				{
+					if (player._facing=='left')
+						player.frame = 7;
+					else
+						player.frame = 8;
+					player.animations.stop();
+				}
+			}
+			break;
+		default: // DITTO
+			//DOWN
+			if (cursors.down.isDown && player.body.touching.down && !player._inDuck) {
+				duck();
+			}else if (player._inDuck && !cursors.down.isDown && !player.body.touching.up && !hitPlatform) {
+				unduck();
+			}
+									//UP
+			if (cursors.up.isDown && player.body.touching.down && !player.body.touching.up)
+			{
+				player.body.velocity.y = -200;
+			}
+			if (cursors.left.isDown) //LEFT
+			{
+				player.body.velocity.x = -150;
+				player._facing = 'left';
+				player.animations.play(player._facing);
+			}else
+			if (cursors.right.isDown) //RIGHT
+			{
+				player.body.velocity.x = 150;
+				player._facing = 'right';
+				player.animations.play(player._facing);
+			}
+			else //NONE
+			{
+				if (player._inDuck && !player.body.touching.up && !hitPlatform) {
+					unduck();
+				}
+				player.animations.stop();
+				player.frame = 2;
+			}
+			break; //default
+	}
+
+	if (score >= 60) {
+		win();
+	}
+} // update
+} //DittoPuzzle.GameState
+
+function transform(poke=0) {
+	if (player._underground || player._inDuck || player._poke == poke || cooldown && poke>0) return false;
+
+	var p = POKEMON[poke];
+	var widthDiff = p.width - player.body.width;
+	if (widthDiff < 0) widthDiff = 0;
+	if (player._facing=='left') widthDiff *= -1;
+	var heightDiff = p.height - player.body.height;
+	old = player;
+	player = game.add.sprite(player.x-widthDiff, player.y-heightDiff, p.texture);
+	player._facing = old._facing;
+	game.physics.arcade.enable(player);
+	old.destroy();
+	player._poke = poke;
+	player.body.bounce.x = p.bounceX;
+	player.body.bounce.y = p.bounceY;
+	player.body.gravity.X = p.gravityX;
+	player.body.gravity.y = p.gravityY;
+	player.body.collideWorldBounds = p.collide;
+	switch(poke) {
+		case 1: // PIDGEY
+			player.animations.add('left', [0, 1, 2, 3], 10, true);
+			player.animations.add('right', [7, 6, 5, 4], 10, true);
+			player.animations.play(player._facing);
+			break;
+		case 2: // SQUIRTLE
+			player.animations.add('left', [0, 1, 2, 3, 4, 5], 10, true);
+			player.animations.add('right', [19, 18, 17, 16, 15], 10, true);
+			player.animations.add('right', [19, 18, 17, 16, 15], 10, true);
+			player.animations.add('shellIn-left', [8, 9], 5);
+			player.animations.add('shellOut-left', [9, 8], 5);
+			player.animations.add('shellIn-right', [11, 10], 5);
+			player.animations.add('shellOut-right', [10, 11], 5);
+			player.animations.add('watergun-left', [7,0], 5);
+			player.animations.add('watergun-right', [12,19], 5);
+			player.animations.play(player._facing);
+			spacebar = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+			spacebar.onDown.removeAll();
+			spacebar.onDown.add(function() {
+				player.animations.play('watergun-'+player._facing);
+				delay = true;
+				if (player._facing=='left') {
+					var watergun = waters.create(player.x-70, player.y-6, 'watergun-l');
+					game.time.events.add(Phaser.Timer.SECOND * 0.2, function() {watergun.destroy();} );
+				}else{
+					var watergun = waters.create(player.x+36, player.y-6, 'watergun-r');
+					game.time.events.add(Phaser.Timer.SECOND * 0.2, function() {watergun.destroy();} );
+				}
+			});
+			break;
+		case 3: // DIGLETT
+			spacebar = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+			spacebar.onDown.removeAll();
+			break;
+		case 4: // MACHOP 
+			player.animations.add('left', [0, 1, 2, 3, 4, 5, 6, 7], 10, true);
+			player.animations.add('right', [14, 13, 12, 11, 10, 9, 8], 10, true);
+			player.animations.play(player._facing);
+			spacebar = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+			spacebar.onDown.removeAll();
+			break;
+		default: // DITTO
+			player.animations.add('left', [0, 1], 10, true);
+			player.animations.add('right', [4, 3], 10, true);
+			player.frame = 2;
+			spacebar = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+			spacebar.onDown.removeAll();
+			break;
+	}
+	if (poke>0) {
+		//na fase 2 está dando o erro:
+		//Cannot read property 'tick' of undefined
+		if (p.duration && fase!=2) {
+			game.time.events.add(Phaser.Timer.SECOND * p.duration, transform, 0);
+		}
+		cooldown = true;
+	}else{
+		game.time.events.events = [];
+		game.time.events.add(Phaser.Timer.SECOND * 1, function() {cooldown = false;} );
+	}
+}
+
+function collectberry (player, berry) {
+	berry.kill();
+	score += 10;
+}
+
+function duck() {
+	player.loadTexture('dittoD');
+	player._inDuck = true;
+	player.body.width = 31;
+	player.body.height = player.body.height - 6;
+	player.y = player.y + 6;
+}
+
+function unduck() {
+	player.loadTexture('ditto');
+	player._inDuck = false;
+	player.body.width = 22;
+	player.body.height = player.body.height + 6;
+	player.y = player.y - 6;
+}
+
+function win() {
+	player.kill();
+	score = 0;
+	player._poke = 0;
+	cooldown = false;
+	console.log("WIN");
+	game.state.start('WinScreen');
+}
+
+function killPlayer(player) {
+	player.kill();
+	score = 0;
+	player._poke = 0;
+	cooldown = false;
+	console.log("WASTED");
+	game.state.start('GameOver');
+}
+function killFire(player, fire) {
+	fire.kill();
+}
+function pushBoulder(player, boulder) {
+	if (!game.physics.arcade.collide(boulder, platforms) && !game.physics.arcade.collide(boulder, platforms)) {
+		if (player._facing=='left')
+			boulder.body.velocity.x = -160;
+		else
+			boulder.body.velocity.x = 160;
+
+		game.time.events.add(Phaser.Timer.SECOND * 0.2, function() {
+			boulder.body.velocity.x = 0;
+		});
+	}
+}
+
+var game = new Phaser.Game(1024, 600, Phaser.CANVAS);
+game.state.add('StartScreen',StartScreen.GameState);
+game.state.add('DittoPuzzle',DittoPuzzle.GameState);
+game.state.add('GameOver',GameOver.GameState);
+game.state.add('WinScreen',WinScreen.GameState);
+game.state.start('StartScreen');
+</script>
+
+</body>
+</html>
